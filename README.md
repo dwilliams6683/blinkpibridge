@@ -282,13 +282,13 @@ This is the time offset from UTC. When Blink stores files on a local storage dev
 This is the total time to wait between stability checks.  Because this is being used as an emulated USB drive, the RPiZero does not have the ability to see when Blink's Sync Module is physically accessing the drive.  By using the sparse files, we get around this by seeing when the filesize of the sparse file changed.  If we do not see any change in this time frame, we are assuming that the Sync Module is no longer actively writing video files to the backing file
 - STABILITY_COUNT:
 This is the max number of stability checks to perform to make sure that the device does not unbind the backing file while the Sync Module is currently accessing the device.  The higher the number of checks, the longer the system must no be actively writing to the file before it will be unbound.
-- USER_NAME:
+- `USER_NAME`:
 This is the username of the account for the storage device such as a NAS.
-- IP_ADDRESS:
+- `IP_ADDRESS`:
 This is the IP Address of the storage
-- STORAGE_PATH:
+- `STORAGE_PATH`:
 This is the path of the folder that the media will be transferred to.  This must be accessable via the `USER_NAME`'s account.
-- SSH_PORT:
+- `SSH_PORT`:
 This is the port that will be used via SSH to transfer the files.
 
 The way that this script works is the script will:
@@ -316,6 +316,11 @@ Key Functions:
 
 - `wait_for_unbind()`  
   Waits for USB gadget unbind; mostly for logging.
+
+_*NOTE:*_ For this script to properly run, the script must be set as executable.  To do this, use the following in the directory you placed the script:
+```
+chmod +x ./piusb.sh
+```
 
 ---
 
