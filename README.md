@@ -206,8 +206,80 @@ _(NOTE: I recommend using the /stall set to 0.  Setting it to 1 can cause the ba
 
 ---
 ### Step 7: PIUSB.SH
+This is the main script that does the magic.  This is what handles the swapping of the backing files, assigning indexing, extracting videos, uploading, and cleanup of the backing files.  
 
-Purpose: Rotate backing files, wait for file stability, mount old file, extract videos, rename timestamps (UTC to local), send to NAS, and clean up.
+The folloiwng can be customized within the script by editing the following at the top:
+```
+GADGET_PATH="/sys/kernel/config/usb_gadget/g1"
+UDC_PATH="$GADGET_PATH/UDC"
+UDC_DEV="/sys/class/udc/"
+BACKING_FILES_DIR="/piusb"
+BACKUP_DIR="/piusb/backup"
+TRANSFER_DIR="/piusb/transfer"
+TRANSFER_FILE="transfer.bin"
+LOGGING_FILE="/piusb/log.txt"
+FILES=(sync_sparse_1.bin sync_sparse_2.bin sync_sparse_3.bin)
+INDEX_FILE="/piusb/rotation_index.txt"
+RETRY_DELAY=5  # seconds
+MAX_RETRIES=6  # max wait to unbind
+TIME_OFFSET=4
+WAIT_TIME=10
+STABILITY_COUNT=3
+USER_NAME="user"
+IP_ADDRESS="192.168.0.0"
+STORAGE_PATH="/volume/blink/video"
+```
+
+- GADGET_PATH & UDC_PATH:
+This is the path that you created in step 6.  If you named it differently or your variant of Linux has different pathing, this must match the path used
+- UDC_DEV:
+This is the absolute path to the UDC device.  If you `ls` on this path, you should recieve a result similar to ```20980000.usb```
+- BACKING_FILES_DIR:
+The directory in use for the backing files.  This can be anywhere as long as the script can access it
+- BACKUP_DIR: 
+The directory where backups of the backing files will be placed.  These will be named with a date/time of the copy into the folder.  
+- TRANSFER_DIR & TRANSFER_FILE:
+These determine the directory of transfering the raw .bin file.  Useful if you want to offload the processing of the backing file to another device with more power
+- LOGGING_FILE
+The file that will store any messages with timestamps throughout the process
+- FILES
+These are the files names that will be used as the backing files for the USB gadget.  These files _**MUST**_ match the files that were created with as the backing files.  You can add as many files here as you prefer, just leave a single space between the file names.
+- INDEX_FILE:
+This file keeps track of the file rotation.  This is _**REQUIRED**_ for the script to rotate files properly
+- RETRY_DELAY:
+This variable keeps track of the number of seconds to wait on a failed unbind attempt.  
+- MAX_RETIRES
+This variable keeps the total number of attempts to cleanly unbind before exiting the script with an error.
+- TIME_OFFSET:
+This is the time offset from UTC.  When Blink stores the files on a local storage device, it uses UTC time to name the files.  It does not name the files based on the user's local timezone settings.  In order to correct the file naming properly, this offset must be set.  This can be disabled by specifying '0' in the field.
+- WAIT_TIME:
+This is the total time to wait between stability checks.  Because this is being used as an emulated USB drive, the RPiZero does not have the ability to see when Blink's Sync Module is physically accessing the drive.  By using the sparse files, we get around this by seeing when the filesize of the sparse file changed.  If we do not see any change in this time frame, we are assuming that the Sync Module is no longer actively writing video files to the backing file
+- STABILITY_COUNT:
+This is the max number of stability checks to perform to make sure that the device does not unbind the backing file while the Sync Module is currently accessing the device.  The higher the number of checks, the longer the system must no be actively writing to the file before it will be unbound.
+- USER_NAME:
+This is the username of the account for the storage device such as a NAS.
+- IP_ADDRESS:
+This is the IP Address of the storage
+- STORAGE_PATH:
+This is the path of the folder that the media will be transferred to.  This must be accessable via the `USER_NAME`'s account.
+- SSH_PORT:
+This is the port that will be used via SSH to transfer the files.
+
+The way that this script works is the script will:
+1. Check to see if the log file exists, then will either append to the log or start a new log file
+2. Reads the index file to determine what backing file should be used to mount
+3. Begins the backing file rotation by checking for file stability to see if Blink is currently recording to the file
+   - If it is recording, the script will wait and then attempt to check the stability again.  If the backing file is not accessed by the sync module after this point in time, the system will then proceed.  If not, it will reset the stability check, holding off on unbinding the file until it detects that the file size of the backing file has not changed.
+4. Next it will attempt to unbind the backing file
+   - *NOTE*: If the script is not run as root or with elevated permissions (`sudo`), the script will not be able to unbind the file and instead will error out with a failure.
+5. The script will then remount the next backing file to record.  This keeps the total downtime of recording to a matter of seconds.
+6. Once done, the script will then update the index file to the mark the next file that needs to be loaded in
+7. Next, the backing file that was just unbound will be copied to the backup folder (and transfer folder if enabled), and then processed.
+8. The script will then create a loop device to mount the backing file on so that it can access the files stored within.
+9. The script will then attempt to rename the files to account for UTC offset.  Since the files are of a standard naming (HH-MM-SS_CameraName_XXX.mp4), we seperate out the file name using REGEX and then adjust the HH portion of the filename to account for UTC offset.
+    - This will only happen if the filename does not exist already.  If the filename exists, it will skip to the next file in the process.
+10.  Next the entire process will transfer the files to the storage you have defined in the variables above using `tar -cf - . | ssh -p $SSH_PORT $USER_NAME@IP_ADDRESS 'tar -xpf - -C $STORAGE_PATH'`.  This will transfer the files in the exact directory structure of the /blink directory, retaining the entire directory structure that exists beyond the /blink folder.
+11. Once the transfer is complete, the script will do a unmount of the loop device then remount the device and clear out any of the files that were transferred before doing a final unmounting of the loop device.  This is done in this manner to prevent any write locks being encountered on the device and the backing file that is being mounted as a loop device, from getting corrupted via a unclean unmount.
 
 Run as: `root` or `sudo` (if run by cron, run as root).
 
