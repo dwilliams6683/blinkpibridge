@@ -12,11 +12,11 @@ FILES=(sync_sparse_1.bin sync_sparse_2.bin sync_sparse_3.bin)
 INDEX_FILE="/piusb/rotation_index.txt"
 RETRY_DELAY=5  # seconds
 MAX_RETRIES=6  # max wait 30 seconds to unbind
-TIME_OFFSET=4
+TIME_OFFSET=-4
 USER_NAME="blinkpi"
 IP_ADDRESS="192.168.0.5"
 STORAGE_PATH="/volume1/blink/video"
-SSH_PORT="52125"
+SSH_PORT=52125
 
 function wait_for_file_stability() {
     local file="$1"
@@ -144,41 +144,54 @@ mount -o loop,offset=31744 "$PREV_FILE" /mnt/sparse_mount
 sync
 sleep 5
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') Entering Blink storage directory" >> $LOGGING_FILE
-cd /mnt/sparse_mount/blink
-
-# Step 6: Rename files in-place to convert UTC timestamps to local time
+echo "$(date '+%Y-%m-%d %H:%M:%S') Entering Blink storage directory in backing file" >> $LOGGING_FILE
 cd /mnt/sparse_mount/blink || exit 1
 
-
 find . -type f -name "*.mp4" | while read -r file; do
-    dir=$(dirname "$file")
-    base=$(basename "$file")
+    mtime=$(stat -c %Y "$file")
+    local_date=$(date -d "@$mtime" +%y-%m-%d)
+    local_month=$(date -d "@$mtime" +%y-%m)
+    local_time=$(date -d "@$mtime" +%H-%M-%S)
+    filename=$(basename "$file")
+    suffix="${filename#*_}"
+    target_dir="./$local_month/$local_date"
+    mkdir -p "$target_dir"
+    target_file="$target_dir/${local_time}_$suffix"
 
-    # Extract time prefix (HH-MM-SS) and rest of filename
-    timepart=${base%%_*}   # "HH-MM-SS"
-    rest=${base#*_}        # "CameraName_XXX.mp4"
-
-    # Split timepart into HH, MM, SS
-    IFS='-' read -r HH MM SS <<< "$timepart"
-
-    # Subtract TIME_OFFSET from HH modulo 24 with zero-padding
-    HH_NUM=$(( 10#${HH#0} ))
-    newHH=$(( (HH_NUM - TIME_OFFSET + 24) % 24 ))
-    if (( newHH < 10 )); then
-        newHH="0$newHH"
-    fi
-
-    new_time="${newHH}-${MM}-${SS}"
-    newname="${new_time}_$rest"
-
-    # Rename only if different and target doesn't exist
-    if [[ "$base" != "$newname" && ! -e "$dir/$newname" ]]; then
-        echo "Renaming: $base → $newname"
-		echo "$(date '+%Y-%m-%d %H:%M:%S') Renaming: $base → $newname" >> $LOGGING_FILE
-        mv "$dir/$base" "$dir/$newname"
+    if [[ "$file" != "$target_file" && ! -e "$target_file" ]]; then
+        mv "$file" "$target_file"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') Renamed $file → $target_file" >> $LOGGING_FILE
     fi
 done
+
+###find . -type f -name "*.mp4" | while read -r file; do
+#    dir=$(dirname "$file")
+#    base=$(basename "$file")
+#
+#    # Extract time prefix (HH-MM-SS) and rest of filename
+#    timepart=${base%%_*}   # "HH-MM-SS"
+#    rest=${base#*_}        # "CameraName_XXX.mp4"
+#
+#    # Split timepart into HH, MM, SS
+#    IFS='-' read -r HH MM SS <<< "$timepart"
+#
+#    # Subtract TIME_OFFSET from HH modulo 24 with zero-padding
+#    HH_NUM=$(( 10#${HH#0} ))
+#    newHH=$(( (HH_NUM + TIME_OFFSET + 24) % 24 ))
+#    if (( newHH < 10 )); then
+#        newHH="0$newHH"
+#    fi
+#
+#    new_time="${newHH}-${MM}-${SS}"
+#    newname="${new_time}_$rest"
+#
+#    # Rename only if different and target doesn't exist
+#    if [[ "$base" != "$newname" && ! -e "$dir/$newname" ]]; then
+#        echo "Renaming: $base → $newname"
+#		echo "$(date '+%Y-%m-%d %H:%M:%S') Renaming: $base → $newname" >> $LOGGING_FILE
+#        mv "$dir/$base" "$dir/$newname"
+#    fi
+###done
 
 sleep 5
 sync
@@ -186,10 +199,13 @@ sync
 # Step 7: Transfer files via SSH to NAS keeping the directory structure the same as it normally would be on real USB drive
 echo "$(date '+%Y-%m-%d %H:%M:%S') Starting Transfer of files" >> $LOGGING_FILE
 echo "Starting Transfer of Files."
-tar -cf - . | ssh -p $SSH_PORT $USER_NAME@IP_ADDRESS 'tar -xpf - -C $STORAGE_PATH'
+tar -cf - . | ssh -p "$SSH_PORT" "$USER_NAME@$IP_ADDRESS" "tar -xpf - -C '$STORAGE_PATH'"
+
+#echo "$(date '+%Y-%m-%d %H:%M:%S') Starting transfer of files with removal after transfer" >> $LOGGING_FILE
+# Use tar with --remove-files to transfer AND delete files from sparse mount
+#tar --remove-files -cf - . | ssh -p "$SSH_PORT" "$USER_NAME@$IP_ADDRESS" "tar -xpf - -C '$STORAGE_PATH'"
 
 cd /piusb
-
 echo "$(date '+%Y-%m-%d %H:%M:%S') Unmounting Loop Device" >> $LOGGING_FILE
 umount /mnt/sparse_mount
 sleep 5
