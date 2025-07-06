@@ -156,6 +156,8 @@ sudo nano /boot/firmware/cmdline.txt
 ```
 _REMEMBER TO SAVE YOUR CHANGES_
 
+_*Note:*_ Both the dwc2 and g_mass_storage modules need to be loaded at boot because dwc2 enables the USB controller in gadget mode, and g_mass_storage provides the actual emulated USB mass storage device. Loading both ensures the Blink Sync module detects the virtual drive immediately after the Pi boots.
+
 4. Reboot:
 ```
 sudo reboot
@@ -256,31 +258,31 @@ STORAGE_PATH="/volume/blink/video"
 SSH_PORT=22
 ```
 
-- GADGET_PATH & UDC_PATH:
+- `GADGET_PATH` & `UDC_PATH`:
 This is the path that you created in step 6.  If you named it differently or your variant of Linux has different pathing, this must match the path used
-- UDC_DEV:
+- `UDC_DEV`:
 This is the absolute path to the UDC device.  If you `ls` on this path, you should recieve a result similar to ```20980000.usb```
-- BACKING_FILES_DIR:
+- `BACKING_FILES_DIR`:
 The directory in use for the backing files.  This can be anywhere as long as the script can access it
-- BACKUP_DIR: 
+- `BACKUP_DIR`: 
 The directory where backups of the backing files will be placed.  These will be named with a date/time of the copy into the folder.  
-- TRANSFER_DIR & TRANSFER_FILE:
+- `TRANSFER_DIR` & `TRANSFER_FILE`:
 These determine the directory of transfering the raw .bin file.  Useful if you want to offload the processing of the backing file to another device with more power
-- LOGGING_FILE
+- `LOGGING_FILE`
 The file that will store any messages with timestamps throughout the process
-- FILES
+- `FILES`
 These are the files names that will be used as the backing files for the USB gadget.  These files _**MUST**_ match the files that were created with as the backing files.  You can add as many files here as you prefer, just leave a single space between the file names.
-- INDEX_FILE:
+- `INDEX_FILE`:
 This file keeps track of the file rotation.  This is _**REQUIRED**_ for the script to rotate files properly.
-- RETRY_DELAY:
+- `RETRY_DELAY`:
 This variable keeps track of the number of seconds to wait on a failed unbind attempt.  
-- MAX_RETRIES
+- `MAX_RETRIES`
 This variable keeps the total number of attempts to cleanly unbind before exiting the script with an error.
-- TIME_OFFSET:
+- `TIME_OFFSET`:
 This is the time offset from UTC. When Blink stores files on a local storage device, it uses UTC time to name the files. It does not name them based on the user's local time zone settings. To correct the file naming properly, this offset must be set. This can be disabled by specifying `0` in the field.
-- WAIT_TIME:
+- `WAIT_TIME`:
 This is the total time to wait between stability checks.  Because this is being used as an emulated USB drive, the RPiZero does not have the ability to see when Blink's Sync Module is physically accessing the drive.  By using the sparse files, we get around this by seeing when the filesize of the sparse file changed.  If we do not see any change in this time frame, we are assuming that the Sync Module is no longer actively writing video files to the backing file
-- STABILITY_COUNT:
+- `STABILITY_COUNT`:
 This is the max number of stability checks to perform to make sure that the device does not unbind the backing file while the Sync Module is currently accessing the device.  The higher the number of checks, the longer the system must no be actively writing to the file before it will be unbound.
 - `USER_NAME`:
 This is the username of the account for the storage device such as a NAS.
