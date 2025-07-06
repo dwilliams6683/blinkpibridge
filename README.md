@@ -105,4 +105,3 @@ Add this line:
 
 ---
 
-*This documentation provides a comprehensive, easy-to-follow overview of the Blink Pi USB gadget setup and operation.*
