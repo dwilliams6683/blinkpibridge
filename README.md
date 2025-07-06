@@ -5,30 +5,61 @@ This system uses a Raspberry Pi Zero W in USB gadget mode to emulate a 4GB FAT32
 
 ---
 
-## 2. Hardware
-- Device: Raspberry Pi Zero W  
-- Storage: MicroSD + `/piusb` mount for backing files  
-- Connected Device: Blink Sync Module via USB OTG  
-- Networking: Wi-Fi for NAS access via SCP or rsync  
+## 2. Hardware Requirements and Configuration
+| Component         | Purpose / Details                                                                 |
+|------------------|-------------------------------------------------------------------------------------|
+| Raspberry Pi Zero W | Primary controller running in USB gadget mode. Emulates a FAT32 USB drive.      |
+| MicroSD Card      | Holds the OS, rotation script, and sparse `.bin` backing files (min 16GB recommended). |
+| Blink Sync Module | Connects via USB OTG. Detects the emulated drive for motion video storage.        |
+| USB OTG Cable     | Connects Pi Zero’s micro-USB port to Blink Sync’s USB-A port.                     |
+| Wi-Fi Network     | Provides wireless access for file transfer to NAS or other storage.               |
+| NAS / Server      | Destination for archived clips. Must support SSH for `scp` or `rsync`.            |
 
 ---
 
-## 3. Key Directories
+## 3. Key Directories and Files
 
-| Path                | Purpose                                 |
-|---------------------|-----------------------------------------|
-| `/piusb/`           | Base folder for sparse backing files    |
-| `/piusb/backup/`    | Stores historical copies of used `.bin` |
-| `/mnt/sparse_mount/`| Mount point for file parsing/cleaning   |
+| Path                | Purpose                                                                |
+|---------------------|------------------------------------------------------------------------|
+| `/piusb/`           | Base folder for sparse backing files                                   |
+| `/piusb/backup/`    | Stores historical copies of used `.bin` for error recovery             |
+| `/mnt/sparse_mount/`| Mount point for file parsing/cleaning                                  | 
+| `/sys/kernel/config/usb_gadget/g1/` | USB gadget config directory                            |
+| `/sys/kernel/config/usb_gadget/g1/UDC` | USB Device Controller binding interface             |
+| `/etc/cron.d/` or user crontab | Location where cron jobs are set up                         |
+| `/piusb/log.txt`           | Log file for rotation script status                             |
+| `/piusb/rotation_index.txt` | Keeps track of which sparse file to rotate next                |
 
 ---
 
-## 4. Backing Files (Rotation)
-- `sync_sparse_1.bin`  
-- `sync_sparse_2.bin`  
-- `sync_sparse_3.bin`  
+## 4. Creation and Purpose of Backing Files
 
-Each is rotated hourly using `rotation_index.txt` to track position.
+The system uses three sparse backing files named `sync_sparse_1.bin`, `sync_sparse_2.bin`, and `sync_sparse_3.bin`. These files act as virtual USB storage devices that the Blink Sync Module sees when connected to the Pi Zero USB gadget.  
+
+### Key points about these backing files:
+- Sparse file format:
+Each .bin file is created as a sparse file, which means it reserves a large file size (e.g., 4GB) without physically occupying all the disk space immediately. This efficiently simulates a USB drive.  
+- File size and structure:
+The files are formatted with a FAT32 filesystem starting at a fixed offset (31744 bytes) to match the Blink device expectations.  
+- Rotation mechanism:
+The rotation index (`rotation_index.txt`) keeps track of which sparse file is currently in use. Each hour, the script rotates to the next file in the list to offload videos from the Blink device to the Pi. 
+- Backup and reuse:
+After rotation, the previously used .bin file is backed up to /piusb/backup/, transferred to the NAS, cleaned (old video files removed), and reused in the next rotation cycle.
+
+### Creating the sparse files
+To create these backing files, run the following commands:
+```bash
+truncate -s 4G /piusb/sync_sparse_1.bin
+truncate -s 4G /piusb/sync_sparse_2.bin
+truncate -s 4G /piusb/sync_sparse_3.bin
+
+mkfs.vfat -F 32 -n BLINK /piusb/sync_sparse_1.bin
+mkfs.vfat -F 32 -n BLINK /piusb/sync_sparse_2.bin
+mkfs.vfat -F 32 -n BLINK /piusb/sync_sparse_3.bin
+```
+-You can name the files as you see fit.  I used the `sync_sparse_X.bin` format of naming to make it easier to keep track of what file was being used at the time of creation of the project, as I was working through various ideas.  If you do change the name of the files, you will need to edit the files in the `piusb.sh` script to reflect the new naming of the files.  I do recommend using at least 4GB files as the smallest, as the Sync Module will not write to the USB drive if less than 375MB of free space exists.  4GB will give plenty of head room for using 30sec recordings.
+
+_(Note: The exact offset and filesystem parameters should match the Blink device requirements.)_
 
 ---
 
