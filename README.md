@@ -11,7 +11,7 @@ This system uses a Raspberry Pi Zero W in USB gadget mode to emulate a 4GB FAT32
 | Raspberry Pi Zero W | Primary controller running in USB gadget mode. Emulates a FAT32 USB drive.      |
 | MicroSD Card      | Holds the OS, rotation script, and sparse `.bin` backing files (min 16GB recommended). |
 | Blink Sync Module | Connects via USB OTG. Detects the emulated drive for motion video storage.        |
-| USB OTG Cable     | Connects Pi Zero’s micro-USB port to Blink Sync’s USB-A port.                     |
+| USB OTG Cable     | Connects Pi Zero’s micro-USB DATA port to Blink Sync’s USB-A port.                     |
 | Wi-Fi Network     | Provides wireless access for file transfer to NAS or other storage.               |
 | NAS / Server      | Destination for archived clips. Must support SSH for `scp` or `rsync`.            |
 
@@ -36,7 +36,7 @@ Because the script transfers files via SSH, you must set up a passwordless SSH c
 
 ## 4. Creation and Purpose of Backing Files
 
-The system uses three sparse backing files named `sync_sparse_1.bin`, `sync_sparse_2.bin`, and `sync_sparse_3.bin`. These files act as virtual USB storage devices that the Blink Sync Module sees when connected to the Pi Zero USB gadget.  
+The system uses three sparse backing files named `sync_sparse_1.bin`, `sync_sparse_2.bin`, and `sync_sparse_3.bin`. These files act as virtual USB storage devices that the Blink Sync Module sees when connected to the Pi Zero USB gadget. 
 
 ### Key points about these backing files:
 - Sparse file format:
@@ -50,7 +50,7 @@ After rotation, the previously used .bin file is backed up to /piusb/backup/, tr
 
 ### Creating the sparse files
 To create these backing files, run the following commands:
-```bash
+```
 truncate -s 4G /piusb/sync_sparse_1.bin
 truncate -s 4G /piusb/sync_sparse_2.bin
 truncate -s 4G /piusb/sync_sparse_3.bin
@@ -202,6 +202,8 @@ ls /sys/class/udc/
 # Bind gadget to UDC (replace YOUR_UDC_NAME with what you found above):
 echo YOUR_UDC_NAME | sudo tee UDC #This should look like echo 20980000.usb or similar.
 ```
+_**NOTE:** I recommend using the /stall set to 0.  Setting it to 1 can cause the backing file to corrupt or the update script to hang due to how the Sync Module accesses the emulated USB device._
+
 - After this:
 Your Pi Zero will expose the sync_sparse_1.bin file as a USB mass storage device.
 You can unbind by writing an empty string to UDC:
@@ -210,7 +212,7 @@ echo "" | sudo tee UDC
 ```
 This lets you safely unmount before syncing.
 
-_**NOTE:** I recommend using the /stall set to 0.  Setting it to 1 can cause the backing file to corrupt out or the update script to hang._
+_**NOTE:** At this point, in the Blink App, you will need to select the "Sync Module" and head to the "Local Storage".  If everything is done correctly, the Blink App will ask you to format the USB drive.  This must be done for each of the backing files before the Sync Module will begin to use them.  Once the files are formatted via the Blink App, they will no longer require formatting unless you recreate the file via the truncate and mkfs commands._
 
 7. Setup passwordless SSH on your NAS / Server
  - **NOTE**: I am not going to give directions for creating user accounts or enabling Authorized Key SSH login.  There are too many different ways that this is done, and varies from NAS to NAS and Server to Server.  Please look this up in the documentation if you are not aware of how to do it.
@@ -321,8 +323,9 @@ Key Functions:
 
 _**NOTE:** For this script to properly run, the script must be set as executable.  To do this, use the following in the directory you placed the script:_
 ```
-chmod +x ./piusb.sh
+sudo chmod +x ./piusb.sh
 ```
+
 
 ---
 
