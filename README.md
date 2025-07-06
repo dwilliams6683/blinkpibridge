@@ -15,7 +15,7 @@ This system uses a Raspberry Pi Zero W in USB gadget mode to emulate a 4GB FAT32
 | Wi-Fi Network     | Provides wireless access for file transfer to NAS or other storage.               |
 | NAS / Server      | Destination for archived clips. Must support SSH for `scp` or `rsync`.            |
 
-Due to how the script works with transferring, and uses SSH to transfer the files.  You must setup a passwordless SSH connection on the NAS / Server for the script to work in a headless mode.
+Due to how the script works with transferring and uses SSH to transfer the files, you must set up a passwordless SSH connection on the NAS/server for the script to work in headless mode.
 
 ---
 
@@ -266,13 +266,13 @@ The file that will store any messages with timestamps throughout the process
 - FILES
 These are the files names that will be used as the backing files for the USB gadget.  These files _**MUST**_ match the files that were created with as the backing files.  You can add as many files here as you prefer, just leave a single space between the file names.
 - INDEX_FILE:
-This file keeps track of the file rotation.  This is _**REQUIRED**_ for the script to rotate files properly
+This file keeps track of the file rotation.  This is _**REQUIRED**_ for the script to rotate files properly.
 - RETRY_DELAY:
 This variable keeps track of the number of seconds to wait on a failed unbind attempt.  
 - MAX_RETIRES
 This variable keeps the total number of attempts to cleanly unbind before exiting the script with an error.
 - TIME_OFFSET:
-This is the time offset from UTC.  When Blink stores the files on a local storage device, it uses UTC time to name the files.  It does not name the files based on the user's local timezone settings.  In order to correct the file naming properly, this offset must be set.  This can be disabled by specifying '0' in the field.
+This is the time offset from UTC. When Blink stores files on a local storage device, it uses UTC time to name the files. It does not name them based on the user's local time zone settings. To correct the file naming properly, this offset must be set. This can be disabled by specifying `0` in the field.
 - WAIT_TIME:
 This is the total time to wait between stability checks.  Because this is being used as an emulated USB drive, the RPiZero does not have the ability to see when Blink's Sync Module is physically accessing the drive.  By using the sparse files, we get around this by seeing when the filesize of the sparse file changed.  If we do not see any change in this time frame, we are assuming that the Sync Module is no longer actively writing video files to the backing file
 - STABILITY_COUNT:
@@ -400,12 +400,12 @@ echo "$UDC_DEVICE" > UDC
 echo "$(date) - Gadget bound to $UDC_DEVICE"
 ```
 *NOTE: Some of the variable names are referrenced as the same method as above. You can change these as you need to.*
-- Save that file as a shell script in the `/usr/local/bin/` folder.  For my use, I used `/usr/local/bin/usb_gadget_boot.sh`.
-- Next we need to make the script have executable permissions
+- Save that file as a shell script in the `/usr/local/bin/` folder. For my use, I used `/usr/local/bin/usb-gadget-boot.sh`.
+- Next we need to make the script executable:
 ```
 chmod +x /usr/local/bin/usb-gadget-boot.sh
 ```
-- Now edit/create the .service file for the service, located in the `/etc/systemd/system/` folder.  In my use case, I used `/etc/systemd/system/usb-gadget.service`.  This is a example of what I used to create the service on my RPiZero.
+- Now edit/create the .service file for the service, located in the `/etc/systemd/system/` folder.  In my use case, I used `/etc/systemd/system/usb-gadget.service`.  This is an example of what I used to create the service on my RPiZero.
 ```
 [Unit]
 Description=USB Gadget Setup on Boot
@@ -432,7 +432,9 @@ sudo systemctl enable usb-gadget.service
 
 ## 10. Blink Settings
 
-You can use whatever settings you prefer for the Clip Length and Rearm time for the cameras.  I found these to be the best for my particular use case.  I honestly would err on having a clip length less than the total WAIT_TIME defined in the script.  Having this being larger than the wait time, will keep the device from unbinding the backing file at times, especially if the camera is recording 60 second clips.  If you do increase the Clip length, make sure to adjust the WAIT_TIME appropriately. 
+You can use whatever settings you prefer for the Clip Length and Rearm Time for the cameras. I found these to be the best for my particular use case.  
+
+I recommend keeping the Clip Length shorter than the WAIT_TIME defined in the script. If the Clip Length exceeds WAIT_TIME (especially at 60 seconds), the system may delay unbinding. If you raise Clip Length, adjust WAIT_TIME accordingly.
 
 | Setting     | Value          | Reasoning                                         |
 |-------------|----------------|--------------------------------------------------|
@@ -446,7 +448,7 @@ You can use whatever settings you prefer for the Clip Length and Rearm time for 
 - [ ] Implement daily archive rotation on NAS
 - [ ] Implement cleanup of backups to last 24 hours
 - [ ] Implement monitoring via advanced logging via toggle in script
-- [ ] Seperate script into various parts to improve porability and modification
+- [ ] Seperate script into various parts to improve portability and modification
 
 ---
 
