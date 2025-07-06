@@ -2,15 +2,21 @@
 
 GADGET_PATH="/sys/kernel/config/usb_gadget/g1"
 UDC_PATH="$GADGET_PATH/UDC"
+UDC_DEV="/sys/class/udc/"
 BACKING_FILES_DIR="/piusb"
 BACKUP_DIR="/piusb/backup"
 TRANSFER_DIR="/piusb/transfer"
+TRANSFER_FILE="transfer.bin"
 LOGGING_FILE="/piusb/log.txt"
-
 FILES=(sync_sparse_1.bin sync_sparse_2.bin sync_sparse_3.bin)
 INDEX_FILE="/piusb/rotation_index.txt"
 RETRY_DELAY=5  # seconds
 MAX_RETRIES=6  # max wait 30 seconds to unbind
+TIME_OFFSET=4
+USER_NAME="blinkpi"
+IP_ADDRESS="192.168.0.5"
+STORAGE_PATH="/volume1/blink/video"
+SSH_PORT="52125"
 
 function wait_for_file_stability() {
     local file="$1"
@@ -98,7 +104,7 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') Switching backing file to: $BACKING_FILES_DIR
 echo "$BACKING_FILES_DIR/$NEXT_FILE" > "$GADGET_PATH/functions/mass_storage.usb0/lun.0/file" 
 
 # Step 3: Bind gadget back to UDC (use detected UDC device)
-UDC_DEVICE=$(ls /sys/class/udc/ | head -n1)
+UDC_DEVICE=$(ls $UDC_DEV | head -n1)
 echo "$(date '+%Y-%m-%d %H:%M:%S') Binding back to UDC: $UDC_DEVICE:$UDC_PATH" >> $LOGGING_FILE
 echo "$UDC_DEVICE" > $UDC_PATH 
 echo "$(date '+%Y-%m-%d %H:%M:%S') Gadget bound to $UDC_DEVICE with file $NEXT_FILE" >> $LOGGING_FILE
@@ -111,7 +117,6 @@ echo "$NEXT_INDEX" > $INDEX_FILE
 # Step 5: After remount, copy previous file to backup and transfer directories, then clear it
 PREV_FILE="$BACKING_FILES_DIR/$CURRENT_FILE"
 BACKUP_FILE="$BACKUP_DIR/$CURRENT_FILE.$(date +%Y%m%d-%H%M%S)"
-TRANSFER_FILE="$TRANSFER_DIR/transfer.bin"
 
 echo "Copying $PREV_FILE to backup and transfer folders..."
 echo "$(date '+%Y-%m-%d %H:%M:%S') Backing up and transfering files to NAS: $PREV_FILE" >> $LOGGING_FILE
@@ -123,13 +128,14 @@ else
     echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Copy failed!" >> $LOGGING_FILE
 fi
 
-#echo "$(date '+%Y-%m-%d %H:%M:%S') Copying $PREV_FILE to $TRANSFER_FILE" >> $LOGGING_FILE
-#if cp -v "$PREV_FILE" "$TRANSFER_FILE" >> "$LOGGING_FILE" 2>&1; then
+#TRANSFER PATH="$TRANSFER_DIR/$TRANSFER_FILE"
+#echo "$(date '+%Y-%m-%d %H:%M:%S') Copying $PREV_FILE to $TRANSFER_PATH" >> $LOGGING_FILE
+#if cp -v "$PREV_FILE" "$TRANSFER_PATH" >> "$LOGGING_FILE" 2>&1; then
 #    echo "$(date '+%Y-%m-%d %H:%M:%S') Copy succeeded" >> $LOGGING_FILE
 #else
 #    echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Copy failed!" >> $LOGGING_FILE
 #fi
-#echo "$(date '+%Y-%m-%d %H:%M:%S') Starting transfer of $TRANSFER_FILE" >> $LOGGING_FILE
+#echo "$(date '+%Y-%m-%d %H:%M:%S') Starting transfer of $TRANSFER_FILE" from $TRANSFER_PATH" >> $LOGGING_FILE
 
 sleep 5
 echo "$(date '+%Y-%m-%d %H:%M:%S') Mounting file to extract videos." >> $LOGGING_FILE
@@ -144,7 +150,6 @@ cd /mnt/sparse_mount/blink
 # Step 6: Rename files in-place to convert UTC timestamps to local time
 cd /mnt/sparse_mount/blink || exit 1
 
-TIME_OFFSET=4  # Number of hours to subtract from HH
 
 find . -type f -name "*.mp4" | while read -r file; do
     dir=$(dirname "$file")
@@ -181,7 +186,7 @@ sync
 # Step 7: Transfer files via SSH to NAS keeping the directory structure the same as it normally would be on real USB drive
 echo "$(date '+%Y-%m-%d %H:%M:%S') Starting Transfer of files" >> $LOGGING_FILE
 echo "Starting Transfer of Files."
-tar -cf - . | ssh -p 52125 blinkpi@192.168.0.5 'tar -xpf - -C /volume1/blink/video/'
+tar -cf - . | ssh -p $SSH_PORT $USER_NAME@IP_ADDRESS 'tar -xpf - -C $STORAGE_PATH'
 
 cd /piusb
 
