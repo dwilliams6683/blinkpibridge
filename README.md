@@ -214,7 +214,7 @@ This lets you safely unmount before syncing.
 
 _**NOTE:** At this point, in the Blink App, you will need to select the "Sync Module" and head to the "Local Storage".  If everything is done correctly, the Blink App will ask you to format the USB drive.  This must be done for each of the backing files before the Sync Module will begin to use them.  Once the files are formatted via the Blink App, they will no longer require formatting unless you recreate the file via the truncate and mkfs commands._
 
-7. Setup passwordless SSH on your NAS / Server
+###Step 7: Setup passwordless SSH on your NAS / Server
  - **NOTE**: I am not going to give directions for creating user accounts or enabling Authorized Key SSH login.  There are too many different ways that this is done, and varies from NAS to NAS and Server to Server.  Please look this up in the documentation if you are not aware of how to do it.
 
 The first thing that will need to be done is creating a user account and shared folder that can be accessed and written to via that user account.  This is how the video's will be transferred from the RPiZero to the NAS.
@@ -234,7 +234,7 @@ ssh-copy-id -p PORT user@ip
 ```
 
 ---
-### Step 7: PIUSB.SH
+## 6. PIUSB.SH
 This is the main script that does the magic.  This is what handles the swapping of the backing files, assigning indexing, extracting videos, uploading, and cleanup of the backing files.  
 
 The folloiwng can be customized within the script by editing the following at the top:
@@ -329,7 +329,7 @@ sudo chmod +x ./piusb.sh
 
 ---
 
-## 8. Cron Setup
+## 7. Cron Setup
 
 -Edit root cron with:
 ```
@@ -353,7 +353,7 @@ The way cron works is by taking the `0 * * * *` as the scheduling.  If we sepera
 I advise reading more on cron scheduling if you are looking to do more than just modifying the script to run on more advanced timing. But for example if we wanted the script to run every two hours, we would use the following `0 */2 * * *` instead.  
 
 ---
-## 9. Loading on Boot
+## 8. Loading on Boot
 
 The script will not load on boot when the RPiZero is first powered up.  This means that until the script is called via cron job or manually run, the USB emulated drive will not exist for Blink to access if the PI reboots.  To fix this, we need to create a service for systemd that will load on startup of the RPiZero. To do this we need to do the following:
 - Create a script that will load on startup.
@@ -445,7 +445,7 @@ sudo systemctl enable usb-gadget.service
 
 ---
 
-## 10. Blink Settings
+## 9. Blink Settings
 
 You can use whatever settings you prefer for the Clip Length and Rearm Time for the cameras. I found these to be the best for my particular use case.  
 
@@ -458,7 +458,7 @@ I recommend keeping the Clip Length shorter than the WAIT_TIME defined in the sc
 
 ---
 
-## 11. To Do / Improvements
+## 10. To Do / Improvements
 
 - [ ] Implement daily archive rotation on NAS
 - [ ] Implement cleanup of backups to last 24 hours
