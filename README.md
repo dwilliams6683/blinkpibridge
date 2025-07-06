@@ -78,41 +78,51 @@ Click the gear icon ⚙️ before clicking “Write” to:
 - Enable SSH
 - Configure Wi-Fi (SSID, password, country code)
 - Set locale, timezone, keyboard layout
-
-Click Save, then Write
+- Click Save, then Write
 
 ### 🔌Step 2: Boot the Pi
-Insert the SD card
-
-Power the Pi Zero via micro USB (use the PWR port)
-
-Wait 60–90 seconds for it to boot
+- Insert the SD card
+- Power the Pi Zero via micro USB (use the PWR port)
+- Wait 60–90 seconds for it to boot
 
 ### 🔍Step 3: Find the IP Address
-Log in to your router and find the hostname or MAC address
-
-Or use a network scanner like nmap:
-```nmap -sn 192.168.1.0/24```
+- Log in to your router and find the hostname or MAC address
+- Or use a network scanner like nmap:
+```
+nmap -sn 192.168.1.0/24
+```
 
 ### 🔐Step 4: Connect via SSH
-```ssh pi@<IP-address>```
+```
+ssh pi@<IP-address>
+```
 OR
-```ssh pi@raspberrypi.local```
+```
+ssh pi@raspberrypi.local
+```
 
 Default password is `raspberry` (change it after logging in!)
-```passwd```
+```
+passwd
+```
 
 ### Step 5: Update the system and install the needed software
 First, we need to use `raspi-config` and expand the filesystem to use the entire microSD card.  Failure to do so will result in running out of space on the creation of the backing files
-```sudo raspi-config```
+```
+sudo raspi-config
+```
 - Go to Advanced Options → Expand Filesystem
 - Reboot after doing this.
 
 Next, do a full system update to make sure the everything is updated
-```sudo apt update && sudo apt upgrade -y```
+```
+sudo apt update && sudo apt upgrade -y
+```
 
 Then we need to install the following: rsync, git, screen
-```sudo apt install rsync git screen -y```
+```
+sudo apt install rsync git screen -y
+```
 
 ### Step 6: Enable USB OTG mode on the device
 On Raspberry Pi OS, enabling USB OTG gadget mode is usually done by manually:
@@ -124,7 +134,7 @@ On Raspberry Pi OS, enabling USB OTG gadget mode is usually done by manually:
 ```
 sudo nano /boot/firmware/config.txt
 ```
-Add the 'dtoverlay=dwc2' at the top of the file.  Be sure to `Ctrl+X` and press `Y` to save changes to the file.
+Add the `dtoverlay=dwc2` at the top of the file.  Be sure to `Ctrl+X` and press `Y` to save changes to the file.
 
 2. Edit modules to load dwc2 on boot:
 ```
@@ -192,7 +202,7 @@ echo "" | sudo tee UDC
 ```
 This lets you safely unmount before syncing.
 
-_(NOTE: I personally recommend using the /stall set to 0.  Setting it to 1 can cause the backing file to corrupt out or the update script to hang.)_
+_(NOTE: I recommend using the /stall set to 0.  Setting it to 1 can cause the backing file to corrupt out or the update script to hang.)_
 
 ---
 ### Step 7: PIUSB.SH
