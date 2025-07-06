@@ -443,9 +443,10 @@ You can use whatever settings you prefer for the Clip Length and Rearm time for 
 
 ## 11. To Do / Improvements
 
-- [ ] Auto-detect DST offset  
-- [ ] Switch to `rsync` for differential sync  
-- [ ] Implement daily archive rotation on NAS  
+- [ ] Implement daily archive rotation on NAS
+- [ ] Implement cleanup of backups to last 24 hours
+- [ ] Implement monitoring via advanced logging via toggle in script
+- [ ] Seperate script into various parts to improve porability and modification
 
 ---
 
