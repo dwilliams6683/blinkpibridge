@@ -133,6 +133,7 @@ On Raspberry Pi OS, enabling USB OTG gadget mode is usually done by manually:
 - Adding `dtoverlay=dwc2` in /boot/firmware/config.txt
 - Ensuring the kernel module dwc2 loads at boot (by adding it to /etc/modules or via modules-load kernel parameter).
 - Loading the USB gadget module you want (e.g., g_mass_storage, g_ether, g_serial, etc).
+_*NOTE:*_ Note: This guide assumes Raspberry Pi OS Bullseye or newer. Older versions may use /boot instead of /boot/firmware.  Please verify existance before making modifications to the files.
   
 1. Add `dtoverlay=dwc2` in /boot/firmware/config.txt.
 ```
