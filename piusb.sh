@@ -13,8 +13,8 @@ INDEX_FILE="/piusb/rotation_index.txt"
 RETRY_DELAY=5  # seconds
 MAX_RETRIES=6  # max wait 30 seconds to unbind
 TIME_OFFSET=-4
-USER_NAME="blinkpi"
-IP_ADDRESS="192.168.0.5"
+USER_NAME="user"
+IP_ADDRESS="192.168.0.1"
 STORAGE_PATH="/volume1/blink/video"
 SSH_PORT=52125
 
