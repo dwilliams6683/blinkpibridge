@@ -15,6 +15,8 @@ This system uses a Raspberry Pi Zero W in USB gadget mode to emulate a 4GB FAT32
 | Wi-Fi Network     | Provides wireless access for file transfer to NAS or other storage.               |
 | NAS / Server      | Destination for archived clips. Must support SSH for `scp` or `rsync`.            |
 
+Due to how the script works with transferring, and uses SSH to transfer the files.  You must setup a passwordless SSH connection on the NAS / Server for the script to work in a headless mode.
+
 ---
 
 ## 3. Key Directories and Files
@@ -204,6 +206,25 @@ This lets you safely unmount before syncing.
 
 _(NOTE: I recommend using the /stall set to 0.  Setting it to 1 can cause the backing file to corrupt out or the update script to hang.)_
 
+7. Setup passwordless SSH on your NAS / Server
+ - *NOTE*: I am not going to give directions for creating user accounts or enabling Authorized Key SSH login.  There are too many different ways that this is done, and varies from NAS to NAS and Server to Server.  Please look this up in the documentation if you are not aware of how to do it.
+
+The first thing that will need to be done is creating a user account and shared folder that can be accessed and written to via that user account.  This is how the video's will be transferred from the RPiZero to the NAS.
+
+Next, we need to on the RPiZero create an SSH key.  This will take a few minutes as the key generation takes place. Use the command to generate the key.
+```
+ssh-keygen -t rsa -b 4096
+```
+
+Now, we need to transfer that key to the NAS / Server to allow for the transfer to take place without needing us to enter a password each time.  Run the following command from the RPiZero, replacing the `user` and `ip` with the username of the account you created on the NAS / Server, and the IP address of the NAS / Server.
+```
+ssh-copy-id user@ip
+```
+*NOTE*: If you are using non-standard ports, you will need to use the following command below instead to transfer the key.  Failing to specify the correct port will fail out in the transfer.
+```
+ssh-copy-id -p PORT user@ip
+```
+
 ---
 ### Step 7: PIUSB.SH
 This is the main script that does the magic.  This is what handles the swapping of the backing files, assigning indexing, extracting videos, uploading, and cleanup of the backing files.  
@@ -295,58 +316,136 @@ Key Functions:
 
 ## 8. Cron Setup
 
-Run every hour at minute 0.
-
-Edit root cron with:
-
-    sudo crontab -e
-
+-Edit root cron with:
+```
+sudo crontab -e
+```
 Add this line:
+```
+0 * * * * /piusb/piusb.sh >> /piusb/cron.log 2>&1
+```
+What this does is tells cron to schedule the tasking every hour and run at minute 0.
 
-    0 * * * * /piusb/piusb.sh >> /piusb/cron.log 2>&1
+The way cron works is by taking the `0 * * * *` as the scheduling.  If we seperate it out into the following vertically it will appear like.
+| VALUE | MEANING |
+|-------|---------|
+|  0    | Minute  |
+|  *    | Hour    |
+|  *    | Day     |
+|  *    | Month   |
+|  *    | Day of the week|
+
+I advise reading more on cron scheduling if you are looking to do more than just modifying the script to run on more advanced timing. But for example if we wanted the script to run every two hours, we would use the following `0 */2 * * *` instead.  
+
+---
+## 9. Loading on Boot
+
+The script will not load on boot when the RPiZero is first powered up.  This means that until the script is called via cron job or manually run, the USB emulated drive will not exist for Blink to access if the PI reboots.  To fix this, we need to create a service for systemd that will load on startup of the RPiZero. To do this we need to do the following:
+- Create a script that will load on startup.
+```
+#!/bin/bash
+
+LOG="/piusb/boot_gadget.log"
+exec > "$LOG" 2>&1
+set -e
+
+echo "$(date) - Starting usb-gadget-boot.sh"
+
+modprobe libcomposite
+
+# Wait up to 10 seconds for configfs to be ready
+for i in {1..10}; do
+    if [[ -d /sys/kernel/config/usb_gadget ]]; then
+        break
+    fi
+    echo "$(date) - Waiting for configfs to be ready..."
+    sleep 1
+done
+
+# If gadget already exists, skip
+if [[ -d /sys/kernel/config/usb_gadget/g1 ]]; then
+    echo "$(date) - Gadget already exists, skipping setup"
+    exit 0
+fi
+
+# BEGIN GADGET CREATION
+mkdir -p /sys/kernel/config/usb_gadget/g1
+cd /sys/kernel/config/usb_gadget/g1
+
+echo 0x1d6b > idVendor    # Linux Foundation
+echo 0x0104 > idProduct   # Multifunction Composite Gadget
+echo 0x0100 > bcdDevice
+echo 0x0200 > bcdUSB
+
+mkdir -p strings/0x409
+echo "1234567890" > strings/0x409/serialnumber #You can put anything here you like to distinguish it
+echo "BlinkPi" > strings/0x409/manufacturer #You can put anything here you like to distinguish it
+echo "Blink USB Drive" > strings/0x409/product #You can put anything here you like to distinguish it
+
+mkdir -p configs/c.1/strings/0x409
+echo "Config 1: Mass Storage" > configs/c.1/strings/0x409/configuration
+echo 120 > configs/c.1/MaxPower
+
+mkdir -p functions/mass_storage.usb0
+echo 0 > functions/mass_storage.usb0/stall
+echo 1 > functions/mass_storage.usb0/lun.0/removable
+echo 0 > functions/mass_storage.usb0/lun.0/cdrom
+echo 0 > functions/mass_storage.usb0/lun.0/nofua
+echo /piusb/sync_sparse_1.bin > functions/mass_storage.usb0/lun.0/file
+
+ln -s functions/mass_storage.usb0 configs/c.1/
+
+UDC_DEVICE=$(ls /sys/class/udc | head -n 1)
+echo "$UDC_DEVICE" > UDC
+echo "$(date) - Gadget bound to $UDC_DEVICE"
+```
+*NOTE: Some of the variable names are referrenced as the same method as above. You can change these as you need to.*
+- Save that file as a shell script in the `/usr/local/bin/` folder.  For my use, I used `/usr/local/bin/usb_gadget_boot.sh`.
+- Next we need to make the script have executable permissions
+```
+chmod +x /usr/local/bin/usb-gadget-boot.sh
+```
+- Now edit/create the .service file for the service, located in the `/etc/systemd/system/` folder.  In my use case, I used `/etc/systemd/system/usb-gadget.service`.  This is a example of what I used to create the service on my RPiZero.
+```
+[Unit]
+Description=USB Gadget Setup on Boot
+After=multi-user.target sys-kernel-config.mount
+Requires=sys-kernel-config.mount
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/usb-gadget-boot.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- Once that's saved, run the following commands to enable the service
+```
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable usb-gadget.service
+```
 
 ---
 
-## 9. Blink Settings
+## 10. Blink Settings
+
+You can use whatever settings you prefer for the Clip Length and Rearm time for the cameras.  I found these to be the best for my particular use case.  I honestly would err on having a clip length less than the total WAIT_TIME defined in the script.  Having this being larger than the wait time, will keep the device from unbinding the backing file at times, especially if the camera is recording 60 second clips.  If you do increase the Clip length, make sure to adjust the WAIT_TIME appropriately. 
 
 | Setting     | Value          | Reasoning                                         |
 |-------------|----------------|--------------------------------------------------|
-| Clip Length | 20 seconds     | Capture motion clips long enough for sync        |
+| Clip Length | 20 seconds     | Capture motion clips long enough for use        |
 | Rearm Time  | 10 seconds     | Minimum allowed; balances clip frequency and sync stability |
 
 ---
 
-## 10. Log File
-
-- Location: `/piusb/log.txt`  
-- Contains: Rotation status, file stability checks, copying logs, transfer info, and errors.
-
----
-
-## 11. Troubleshooting Notes
-
-| Symptom                          | Likely Cause                          | Fix                                   |
-|---------------------------------|-------------------------------------|-------------------------------------|
-| `File shrank by ...` tar errors | Rotation during file write           | Increase stability delay or clip length |
-| Permission denied on `/sys/...`  | Script run as non-root                | Run script as root or with sudo      |
-| Files named `_XXX.mp4` only      | Rename script parsing issues          | Check file name parsing logic        |
-| Read-only file system errors     | File still in use during unmount      | Confirm file stability before unmount|
-
----
-
-## 12. To Do / Improvements
+## 11. To Do / Improvements
 
 - [ ] Auto-detect DST offset  
 - [ ] Switch to `rsync` for differential sync  
 - [ ] Implement daily archive rotation on NAS  
-
----
-
-## Appendix: Script Location
-
-- Path: `/piusb/piusb.sh`  
-- Permissions: Owned by `root`, executable (`chmod +x`)  
-- Consider adding sudoers NOPASSWD for ease of manual runs without full root login.
 
 ---
 
