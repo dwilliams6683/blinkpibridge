@@ -59,11 +59,11 @@ mkfs.vfat -F 32 -n BLINK /piusb/sync_sparse_1.bin
 mkfs.vfat -F 32 -n BLINK /piusb/sync_sparse_2.bin
 mkfs.vfat -F 32 -n BLINK /piusb/sync_sparse_3.bin
 ```
-_*NOTE:*_ If you do change the location of the sparse files, make sure to adjust this further on in the `piusb.sh` script.
+_**NOTE:** If you do change the location of the sparse files, make sure to adjust this further on in the `piusb.sh` script._
 - You can name the files as you prefer.  I used the `sync_sparse_X.bin` format of naming to make it easier to keep track of what file was being used at the time of creation of the project, as I was working through various ideas.  If you do change the name of the files, you will need to edit the files in the `piusb.sh` script to reflect the new naming of the files.  I do recommend using at least 4GB files as the smallest, as the Sync Module will not write to the USB drive if less than 375MB of free space exists.  4GB will give plenty of head room for using 30sec recordings.
 
 
-_(Note: The exact offset and filesystem parameters should match the Blink device requirements.)_
+_**Note:** The exact offset and filesystem parameters should match the Blink device requirements._
 
 ---
 
@@ -133,7 +133,7 @@ On Raspberry Pi OS, enabling USB OTG gadget mode is usually done by manually:
 - Adding `dtoverlay=dwc2` in /boot/firmware/config.txt
 - Ensuring the kernel module dwc2 loads at boot (by adding it to /etc/modules or via modules-load kernel parameter).
 - Loading the USB gadget module you want (e.g., g_mass_storage, g_ether, g_serial, etc).
-_*NOTE:*_ Note: This guide assumes Raspberry Pi OS Bullseye or newer. Older versions may use /boot instead of /boot/firmware.  Please verify existance before making modifications to the files.
+_**NOTE:** This guide assumes Raspberry Pi OS Bullseye or newer. Older versions may use /boot instead of /boot/firmware.  Please verify existance before making modifications to the files._
   
 1. Add `dtoverlay=dwc2` in /boot/firmware/config.txt.
 ```
@@ -156,7 +156,7 @@ sudo nano /boot/firmware/cmdline.txt
 ```
 _REMEMBER TO SAVE YOUR CHANGES_
 
-_*Note:*_ Both the dwc2 and g_mass_storage modules need to be loaded at boot because dwc2 enables the USB controller in gadget mode, and g_mass_storage provides the actual emulated USB mass storage device. Loading both ensures the Blink Sync module detects the virtual drive immediately after the Pi boots.
+_**Note:** Both the dwc2 and g_mass_storage modules need to be loaded at boot because dwc2 enables the USB controller in gadget mode, and g_mass_storage provides the actual emulated USB mass storage device. Loading both ensures the Blink Sync module detects the virtual drive immediately after the Pi boots._
 
 4. Reboot:
 ```
@@ -210,10 +210,10 @@ echo "" | sudo tee UDC
 ```
 This lets you safely unmount before syncing.
 
-_(NOTE: I recommend using the /stall set to 0.  Setting it to 1 can cause the backing file to corrupt out or the update script to hang.)_
+_**NOTE:** I recommend using the /stall set to 0.  Setting it to 1 can cause the backing file to corrupt out or the update script to hang._
 
 7. Setup passwordless SSH on your NAS / Server
- - *NOTE*: I am not going to give directions for creating user accounts or enabling Authorized Key SSH login.  There are too many different ways that this is done, and varies from NAS to NAS and Server to Server.  Please look this up in the documentation if you are not aware of how to do it.
+ - **NOTE**: I am not going to give directions for creating user accounts or enabling Authorized Key SSH login.  There are too many different ways that this is done, and varies from NAS to NAS and Server to Server.  Please look this up in the documentation if you are not aware of how to do it.
 
 The first thing that will need to be done is creating a user account and shared folder that can be accessed and written to via that user account.  This is how the video's will be transferred from the RPiZero to the NAS.
 
@@ -226,7 +226,7 @@ Now, we need to transfer that key to the NAS / Server to allow for the transfer 
 ```
 ssh-copy-id user@ip
 ```
-*NOTE*: If you are using non-standard ports, you will need to use the following command below instead to transfer the key.  Failing to specify the correct port will fail out in the transfer.
+**NOTE:** If you are using non-standard ports, you will need to use the following command below instead to transfer the key.  Failing to specify the correct port will fail out in the transfer.
 ```
 ssh-copy-id -p PORT user@ip
 ```
@@ -319,7 +319,7 @@ Key Functions:
 - `wait_for_unbind()`  
   Waits for USB gadget unbind; mostly for logging.
 
-_*NOTE:*_ For this script to properly run, the script must be set as executable.  To do this, use the following in the directory you placed the script:
+_**NOTE:** For this script to properly run, the script must be set as executable.  To do this, use the following in the directory you placed the script:_
 ```
 chmod +x ./piusb.sh
 ```
