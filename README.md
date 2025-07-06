@@ -15,7 +15,7 @@ This system uses a Raspberry Pi Zero W in USB gadget mode to emulate a 4GB FAT32
 | Wi-Fi Network     | Provides wireless access for file transfer to NAS or other storage.               |
 | NAS / Server      | Destination for archived clips. Must support SSH for `scp` or `rsync`.            |
 
-Due to how the script works with transferring and uses SSH to transfer the files, you must set up a passwordless SSH connection on the NAS/server for the script to work in headless mode.
+Because the script transfers files via SSH, you must set up a passwordless SSH connection on the NAS/server for headless operation.
 
 ---
 
@@ -59,7 +59,9 @@ mkfs.vfat -F 32 -n BLINK /piusb/sync_sparse_1.bin
 mkfs.vfat -F 32 -n BLINK /piusb/sync_sparse_2.bin
 mkfs.vfat -F 32 -n BLINK /piusb/sync_sparse_3.bin
 ```
-- You can name the files as you see fit.  I used the `sync_sparse_X.bin` format of naming to make it easier to keep track of what file was being used at the time of creation of the project, as I was working through various ideas.  If you do change the name of the files, you will need to edit the files in the `piusb.sh` script to reflect the new naming of the files.  I do recommend using at least 4GB files as the smallest, as the Sync Module will not write to the USB drive if less than 375MB of free space exists.  4GB will give plenty of head room for using 30sec recordings.
+_*NOTE:*_ If you do change the location of the sparse files, make sure to adjust this further on in the `piusb.sh` script.
+- You can name the files as you prefer.  I used the `sync_sparse_X.bin` format of naming to make it easier to keep track of what file was being used at the time of creation of the project, as I was working through various ideas.  If you do change the name of the files, you will need to edit the files in the `piusb.sh` script to reflect the new naming of the files.  I do recommend using at least 4GB files as the smallest, as the Sync Module will not write to the USB drive if less than 375MB of free space exists.  4GB will give plenty of head room for using 30sec recordings.
+
 
 _(Note: The exact offset and filesystem parameters should match the Blink device requirements.)_
 
@@ -187,6 +189,7 @@ echo 0 > functions/mass_storage.usb0/stall
 echo 1 > functions/mass_storage.usb0/lun.0/removable
 echo 0 > functions/mass_storage.usb0/lun.0/cdrom
 echo 0 > functions/mass_storage.usb0/lun.0/ro
+echo 0 > functions/mass_storage.usb0/lun.0/nofua
 
 ln -s functions/mass_storage.usb0 configs/c.1/
 
@@ -249,6 +252,7 @@ STABILITY_COUNT=3
 USER_NAME="user"
 IP_ADDRESS="192.168.0.0"
 STORAGE_PATH="/volume/blink/video"
+SSH_PORT=22
 ```
 
 - GADGET_PATH & UDC_PATH:
@@ -269,7 +273,7 @@ These are the files names that will be used as the backing files for the USB gad
 This file keeps track of the file rotation.  This is _**REQUIRED**_ for the script to rotate files properly.
 - RETRY_DELAY:
 This variable keeps track of the number of seconds to wait on a failed unbind attempt.  
-- MAX_RETIRES
+- MAX_RETRIES
 This variable keeps the total number of attempts to cleanly unbind before exiting the script with an error.
 - TIME_OFFSET:
 This is the time offset from UTC. When Blink stores files on a local storage device, it uses UTC time to name the files. It does not name them based on the user's local time zone settings. To correct the file naming properly, this offset must be set. This can be disabled by specifying `0` in the field.
@@ -299,7 +303,7 @@ The way that this script works is the script will:
 8. The script will then create a loop device to mount the backing file on so that it can access the files stored within.
 9. The script will then attempt to rename the files to account for UTC offset.  Since the files are of a standard naming (HH-MM-SS_CameraName_XXX.mp4), we seperate out the file name using REGEX and then adjust the HH portion of the filename to account for UTC offset.
     - This will only happen if the filename does not exist already.  If the filename exists, it will skip to the next file in the process.
-10.  Next the entire process will transfer the files to the storage you have defined in the variables above using `tar -cf - . | ssh -p $SSH_PORT $USER_NAME@IP_ADDRESS 'tar -xpf - -C $STORAGE_PATH'`.  This will transfer the files in the exact directory structure of the /blink directory, retaining the entire directory structure that exists beyond the /blink folder.
+10.  Next the entire process will transfer the files to the storage you have defined in the variables above using `tar -cf - . | ssh -p $SSH_PORT "$USER_NAME@$IP_ADDRESS" "tar -xpf - -C '$STORAGE_PATH'"`.  This will transfer the files in the exact directory structure of the /blink directory, retaining the entire directory structure that exists beyond the /blink folder.
 11. Once the transfer is complete, the script will do a unmount of the loop device then remount the device and clear out any of the files that were transferred before doing a final unmounting of the loop device.  This is done in this manner to prevent any write locks being encountered on the device and the backing file that is being mounted as a loop device, from getting corrupted via a unclean unmount.
 
 Run as: `root` or `sudo` (if run by cron, run as root).
@@ -448,7 +452,7 @@ I recommend keeping the Clip Length shorter than the WAIT_TIME defined in the sc
 - [ ] Implement daily archive rotation on NAS
 - [ ] Implement cleanup of backups to last 24 hours
 - [ ] Implement monitoring via advanced logging via toggle in script
-- [ ] Seperate script into various parts to improve portability and modification
+- [ ] Separate script into various parts to improve portability and modification
 
 ---
 
