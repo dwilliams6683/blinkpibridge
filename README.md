@@ -214,7 +214,7 @@ This lets you safely unmount before syncing.
 
 _**NOTE:** At this point, in the Blink App, you will need to select the "Sync Module" and head to the "Local Storage".  If everything is done correctly, the Blink App will ask you to format the USB drive.  This must be done for each of the backing files before the Sync Module will begin to use them.  Once the files are formatted via the Blink App, they will no longer require formatting unless you recreate the file via the truncate and mkfs commands._
 
-###Step 7: Setup passwordless SSH on your NAS / Server
+### Step 7: Setup passwordless SSH on your NAS / Server
  - **NOTE**: I am not going to give directions for creating user accounts or enabling Authorized Key SSH login.  There are too many different ways that this is done, and varies from NAS to NAS and Server to Server.  Please look this up in the documentation if you are not aware of how to do it.
 
 The first thing that will need to be done is creating a user account and shared folder that can be accessed and written to via that user account.  This is how the video's will be transferred from the RPiZero to the NAS.
