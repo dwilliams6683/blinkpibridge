@@ -233,7 +233,46 @@ ssh-copy-id user@ip
 ssh-copy-id -p PORT user@ip
 ```
 
+###Step 7: Transfer piusb.sh
+
+The last part of this step is transferring the piusb.sh script to your Raspberry Pi Zero.
+
+You can do this in one of two ways:
+
+#### Option 1: Using git (Recommended)
+```
+git clone https://github.com/dwilliams6683/blinkpibridge.git
+```
+Once cloned, navigate into the repo:
+```
+cd blinkpibridge
+```
+Then move the script to /piusb (or wherever your backing file directory is):
+```
+mv piusb.sh /piusb/
+```
+And then make it executable:
+```
+chmod +x /piusb/piusb.sh
+```
+#### 🖥️ Option 2: Using a GUI tool like WinSCP (for Windows users)
+If you're on Windows, you can use WinSCP to securely transfer the script to the Pi:
+1. Download and install WinSCP.
+2. Open WinSCP and connect to your Pi using:
+3. File protocol: SCP
+4. Hostname: (Your Pi’s IP address)
+5. Username: pi
+6. Password: (your password)
+7. On the right pane, navigate to /piusb/ on your Pi.
+8. On the left pane, browse to your local copy of piusb.sh.
+9. Drag the file from left to right to upload it.
+10. After uploading, SSH into your Pi and run:
+```
+  chmod +x /piusb/piusb.sh
+```
+
 ---
+
 ## 6. PIUSB.SH
 This is the main script that does the magic.  This is what handles the swapping of the backing files, assigning indexing, extracting videos, uploading, and cleanup of the backing files.  
 
