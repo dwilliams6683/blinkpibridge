@@ -233,7 +233,7 @@ ssh-copy-id user@ip
 ssh-copy-id -p PORT user@ip
 ```
 
-###Step 7: Transfer piusb.sh
+### Step 8: Transfer piusb.sh
 
 The last part of this step is transferring the piusb.sh script to your Raspberry Pi Zero.
 
