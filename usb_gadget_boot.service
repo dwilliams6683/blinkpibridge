@@ -1,0 +1,20 @@
+[Unit]
+# Description can be changed as needed if you want to name it differently
+Description=USB Gadget Setup on Boot
+After=multi-user.target sys-kernel-config.mount
+Requires=sys-kernel-config.mount
+# Ensures this script runs after the root filesystem is ready,
+# but before anything that may try to use the USB gadget.
+
+[Service]
+Type=oneshot
+# This is the path of the shell script that is being called via systemd
+# Path must be accessable and be script must have execute permissions
+ExecStart=/usr/local/bin/usb-gadget-boot.sh
+RemainAfterExit=yes
+# The script sets up the USB gadget once at boot and exits.
+# RemainAfterExit=yes keeps systemd from thinking it's inactive.
+
+[Install]
+WantedBy=multi-user.target
+# Enable with: systemctl enable usb-gadget.service
