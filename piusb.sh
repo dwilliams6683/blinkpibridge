@@ -1,5 +1,6 @@
 #!/bin/bash
 
+#**********************************USER CONFIGURABLE VALUES*********************************#
 GADGET_PATH="/sys/kernel/config/usb_gadget/g1"
 UDC_PATH="$GADGET_PATH/UDC"
 UDC_DEV="/sys/class/udc/"
@@ -18,10 +19,11 @@ IP_ADDRESS="192.168.0.5"
 STORAGE_PATH="/volume1/blink/video"
 SSH_PORT=52125
 
+# Check to see if Sync Module is physically accessing the emulated storage, if so, hold off unbinding and loop until stability check passes
 function wait_for_file_stability() {
     local file="$1"
-    local WAIT_TIME=10
-    local STABILITY_COUNT=3
+    local WAIT_TIME=10			# Time to wait between stability checks
+    local STABILITY_COUNT=3		# Number of stability checks to perform before unbinding backing file
     local stable=0
 
     echo "$(date '+%Y-%m-%d %H:%M:%S') Checking for file stability on $file" >> "$LOGGING_FILE"
@@ -42,6 +44,7 @@ function wait_for_file_stability() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') File appears stable. Proceeding." >> "$LOGGING_FILE"
 }
 
+# Check to make sure that the backing file has successfully unbound.  Exit script with error if file doesn't unbind to prevent corruption 
 
 function wait_for_unbind() {
     local retries=0
@@ -166,6 +169,7 @@ find . -type f -name "*.mp4" | while read -r file; do
     fi
 done
 
+# Use local offset to calculate file names
 ###find . -type f -name "*.mp4" | while read -r file; do
 #    dir=$(dirname "$file")
 #    base=$(basename "$file")
@@ -203,6 +207,7 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') Starting Transfer of files" >> $LOGGING_FILE
 echo "Starting Transfer of Files."
 tar -cf - . | ssh -p "$SSH_PORT" "$USER_NAME@$IP_ADDRESS" "tar -xpf - -C '$STORAGE_PATH'"
 
+# Remove files after sending
 #echo "$(date '+%Y-%m-%d %H:%M:%S') Starting transfer of files with removal after transfer" >> $LOGGING_FILE
 # Use tar with --remove-files to transfer AND delete files from sparse mount
 #tar --remove-files -cf - . | ssh -p "$SSH_PORT" "$USER_NAME@$IP_ADDRESS" "tar -xpf - -C '$STORAGE_PATH'"
