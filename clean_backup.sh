@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#*******************************USER CONFIG*****************************************#
+
 BACKUP_DIR="/piusb/backup"
 SAVE_TIMEFRAME=2
 
