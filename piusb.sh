@@ -13,8 +13,8 @@ INDEX_FILE="/piusb/rotation_index.txt"
 RETRY_DELAY=5  # seconds
 MAX_RETRIES=6  # max wait 30 seconds to unbind
 TIME_OFFSET=-4
-USER_NAME="user"
-IP_ADDRESS="192.168.0.1"
+USER_NAME="blinkpi"
+IP_ADDRESS="192.168.0.5"
 STORAGE_PATH="/volume1/blink/video"
 SSH_PORT=52125
 
@@ -25,11 +25,11 @@ function wait_for_file_stability() {
     local stable=0
 
     echo "$(date '+%Y-%m-%d %H:%M:%S') Checking for file stability on $file" >> "$LOGGING_FILE"
-    local prev_size=$(stat -c %s "$file")
+    local prev_size=$(du "$file" | cut -f1)
 
     while [[ $stable -lt $STABILITY_COUNT ]]; do
         sleep $WAIT_TIME
-        local new_size=$(stat -c %s "$file")
+        local new_size=$(du "$file" | cut -f1)
         if [[ "$new_size" == "$prev_size" ]]; then
             ((stable++))
             echo "$(date '+%Y-%m-%d %H:%M:%S') Stability check $stable/$STABILITY_COUNT passed." >> "$LOGGING_FILE"
@@ -41,6 +41,7 @@ function wait_for_file_stability() {
     done
     echo "$(date '+%Y-%m-%d %H:%M:%S') File appears stable. Proceeding." >> "$LOGGING_FILE"
 }
+
 
 function wait_for_unbind() {
     local retries=0
@@ -88,6 +89,7 @@ wait_for_file_stability "$BACKING_FILES_DIR/$CURRENT_FILE"
 
 # Step 1: Unbind gadget (tell kernel gadget to detach)
 echo "" > $UDC_PATH
+sync
 
 # Wait until unbound (Blink should have released USB gadget)
 if ! wait_for_unbind; then
@@ -98,7 +100,7 @@ fi
 echo "$(date '+%Y-%m-%d %H:%M:%S') Unbound successfully." >> $LOGGING_FILE
 echo "Gadget unbound successfully."
 
-sleep 5
+sleep 15
 # Step 2: Change backing file to next sparse file
 echo "$(date '+%Y-%m-%d %H:%M:%S') Switching backing file to: $BACKING_FILES_DIR/$NEXT_FILE" >> $LOGGING_FILE
 echo "$BACKING_FILES_DIR/$NEXT_FILE" > "$GADGET_PATH/functions/mass_storage.usb0/lun.0/file" 
