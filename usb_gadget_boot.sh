@@ -1,5 +1,6 @@
 #!/bin/bash
 
+#******************************************USER CONFIGURATION**************************************#
 LOG="/piusb/boot_gadget.log"
 GADGET_PATH="/sys/kernel/config/usb_gadget/g1"
 VID="0x1d6b"
