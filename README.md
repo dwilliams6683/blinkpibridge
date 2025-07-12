@@ -283,8 +283,6 @@ UDC_PATH="$GADGET_PATH/UDC"
 UDC_DEV="/sys/class/udc/"
 BACKING_FILES_DIR="/piusb"
 BACKUP_DIR="/piusb/backup"
-TRANSFER_DIR="/piusb/transfer"
-TRANSFER_FILE="transfer.bin"
 LOGGING_FILE="/piusb/log.txt"
 FILES=(sync_sparse_1.bin sync_sparse_2.bin sync_sparse_3.bin)
 INDEX_FILE="/piusb/rotation_index.txt"
@@ -307,8 +305,6 @@ This is the absolute path to the UDC device.  If you `ls` on this path, you shou
 The directory in use for the backing files.  This can be anywhere as long as the script can access it
 - `BACKUP_DIR`: 
 The directory where backups of the backing files will be placed.  These will be named with a date/time of the copy into the folder.  
-- `TRANSFER_DIR` & `TRANSFER_FILE`:
-These determine the directory of transfering the raw .bin file.  Useful if you want to offload the processing of the backing file to another device with more power
 - `LOGGING_FILE`
 The file that will store any messages with timestamps throughout the process
 - `FILES`
@@ -503,6 +499,7 @@ I recommend keeping the Clip Length shorter than the WAIT_TIME defined in the sc
 - [x] Implement cleanup of backups to last 24 hours
 - [ ] Implement monitoring via advanced logging via toggle in script
 - [ ] Separate script into various parts to improve portability and modification
+- [ ] Implement install script to create files of specific size as well as copy script off Github
 
 ---
 
