@@ -500,7 +500,7 @@ I recommend keeping the Clip Length shorter than the WAIT_TIME defined in the sc
 ## 10. To Do / Improvements
 
 - [ ] Implement daily archive rotation on NAS
-- [ ] Implement cleanup of backups to last 24 hours
+- [x] Implement cleanup of backups to last 24 hours
 - [ ] Implement monitoring via advanced logging via toggle in script
 - [ ] Separate script into various parts to improve portability and modification
 
