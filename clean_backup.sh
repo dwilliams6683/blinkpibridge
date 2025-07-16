@@ -48,8 +48,9 @@ elif [[ -n $SIZE_MB ]]; then
   # Delete oldest files until total size <= SIZE_MB
 
   # Get total size in KB
-  total_kb=$(du -sm "$BACKUP_DIR" | cut -f1)
-  max_kb=$SIZE_MB
+  total_kb=$(du -sk "$BACKUP_DIR" | cut -f1)
+  max_kb=$(( SIZE_MB * 1024 ))
+
 
   echo "$(date) Current backup size: $(( total_kb / 1024 )) MB, target max size: $SIZE_MB MB" >> "$LOG_FILE"
 
