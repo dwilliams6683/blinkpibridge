@@ -1,4 +1,10 @@
+# NOTICE:  THE CURRENT DOCUMENTATION IS IN THE PROCESS OF BEING UPDATED DUE TO CHANGES THAT WERE MADE WITH THE FILE.  SOME OF THE CURRENT CONTENT LISTED IS EITHER OUTDATED OR NO LONGER USED
+
 # Blink Pi USB Gadget Setup Documentation
+
+# ⚠️ Important Notice
+
+> This script requires **root** privileges. Please run with `sudo` or as root user.
 
 ## 1. Overview
 This system uses a Raspberry Pi Zero W in USB gadget mode to emulate a 4GB FAT32 mass storage device using sparse `.bin` files for a Blink camera sync module. It rotates between three files every hour to offload videos, back them up to a NAS, and prepare the Pi for the next recording cycle without user interaction.
