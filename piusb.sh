@@ -11,37 +11,98 @@ FILES=(sync_sparse_1.bin sync_sparse_2.bin sync_sparse_3.bin)
 INDEX_FILE="/piusb/rotation_index.txt"
 RETRY_DELAY=5  # seconds
 MAX_RETRIES=6  # max wait 30 seconds to unbind
-TIME_OFFSET=-4
 USER_NAME="blinkpi"
 IP_ADDRESS="192.168.0.5"
 STORAGE_PATH="/volume1/blink/video"
 SSH_PORT=52125
 XFER_RETRY=3
 SPARSE_MOUNT="/mnt/sparse_mount"
+MIN_FREE_MB=4096  
+
+#***************************DEFINE COMMAND OPTIONS*****************************#
+
+VERBOSE=0
+
+while getopts ":vF:" opt; do
+  case $opt in
+    v)
+      VERBOSE=1
+      ;;
+    F)
+      MIN_FREE_MB=$OPTARG
+      ;;
+    \?)
+      echo "Usage: $0 [-v F {size}] "
+	  echo "       -v        - Enables verbose output in logs."
+      echo "                   Use with caution: log files can grow large if   "
+      echo "                   this option is used frequently (e.g., with cron)."
+	  echo "       -F {size} - Defines the minimum free space (in MB) for the "
+	  echo "                   script to run. This defaults to 4096 MB (4GB) if"
+	  echo "                   not specified."
+      exit 1
+      ;;
+  esac
+done
+
+if [[ "$EUID" -ne 0 ]]; then
+  echo "This script must be run as root or with sudo."
+  exit 1
+fi
+
+
+if [ "$VERBOSE" -eq 1 ]; then
+  # Redirect stdout and stderr through tee to duplicate output to logfile and terminal
+  exec > >(tee -a "$LOGGING_FILE") 2>&1
+  set -x  # optional: trace commands for verbose debug
+fi
 
 #******************************BEGIN INITIALIZATION****************************#
 
+# Add lock file to prevent cron and manual run from running concurrently
+LOCKFILE="/tmp/rotate_script.lock"
+
+if [[ -e "$LOCKFILE" ]]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Script already running. Aborting." >> "$LOGGING_FILE"
+    exit 1
+fi
+
+touch "$LOCKFILE"
+
+# Trap to ensure lock is removed on script exit
+trap "rm -f $LOCKFILE" EXIT
+
+
+# Check free space on device before attempting to swap.  If under threshold, log and exit script.
+MIN_FREE_KB=$(( MIN_FREE_MB * 1024 ))
+AVAIL=$(df --output=avail /piusb | tail -1)
+if [ "$AVAIL" -lt "$MIN_FREE_KB" ]; then
+    AVAIL_MB=$(( AVAIL / 1024 ))
+    echo "$(date '+%Y-%m-%d %H:%M:%S') LOW DISK SPACE — Rotation skipped. Available: ${AVAIL_MB}MB, Required: ${MIN_FREE_MB}MB" >> "$LOGGING_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') LOW DISK SPACE — Rotation skipped. Available: ${AVAIL_MB}MB, Required: ${MIN_FREE_MB}MB"
+    exit 1
+fi
+
 # Create directories as needed for proper runtime
 if mkdir -p "$SPARSE_MOUNT"; then
-	echo "$(date '+%Y-%m-%d %H:%M:%S') $SPARSE_MOUNT directory created successfully or exists already." >> "$LOGGING_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $SPARSE_MOUNT directory created successfully or exists already." >> "$LOGGING_FILE"
 else
-	echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Unable to create $SPARSE_MOUNT!  Aborting!" >> "$LOGGING_FILE"
-	echo "ERROR: Unable to create $SPARSE_MOUNT!  Aborting!"
-	exit 1
+    echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Unable to create $SPARSE_MOUNT!  Aborting!" >> "$LOGGING_FILE"
+    echo "ERROR: Unable to create $SPARSE_MOUNT!  Aborting!"
+    exit 1
 fi
 if mkdir -p "$BACKUP_DIR"; then
-	echo "$(date '+%Y-%m-%d %H:%M:%S') $BACKUP_DIR directory created successfully or exists already." >> "$LOGGING_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $BACKUP_DIR directory created successfully or exists already." >> "$LOGGING_FILE"
 else
-	echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Unable to create $BACKUP_DIR!" >> "$LOGGING_FILE"
-	echo "ERROR: Unable to create $BACKUP_DIR!"
-	exit 1
+    echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Unable to create $BACKUP_DIR!" >> "$LOGGING_FILE"
+    echo "ERROR: Unable to create $BACKUP_DIR!"
+    exit 1
 fi
 if mkdir -p "$BACKING_FILES_DIR"; then
-	echo "$(date '+%Y-%m-%d %H:%M:%S') $BACKING_FILES_DIR directory created successfully or exists already." >> "$LOGGING_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $BACKING_FILES_DIR directory created successfully or exists already." >> "$LOGGING_FILE"
 else
-	echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Unable to create $BACKING_FILES_DIR!" >> "$LOGGING_FILE"
-	echo "ERROR: Unable to create $BACKING_FILES_DIR!"
-	exit 1
+    echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Unable to create $BACKING_FILES_DIR!" >> "$LOGGING_FILE"
+    echo "ERROR: Unable to create $BACKING_FILES_DIR!"
+    exit 1
 fi
 
 # This function checks to see if the backing file is still being written to via the Sync Module
@@ -79,10 +140,10 @@ function wait_for_unbind() {
         if (( retries >= MAX_RETRIES )); then
             echo "Failed to unbind gadget after $((RETRY_DELAY * MAX_RETRIES)) seconds"
             echo "$(date '+%Y-%m-%d %H:%M:%S') Failed to unbind gadget after $((RETRY_DELAY * MAX_RETRIES)) seconds" >> "$LOGGING_FILE"
-			return 1
+            return 1
         fi
         echo "Waiting for gadget to unbind..."
-		echo "$(date '+%Y-%m-%d %H:%M:%S') Waiting for gadget to unbind..." >> "$LOGGING_FILE"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') Waiting for gadget to unbind..." >> "$LOGGING_FILE"
         sleep $RETRY_DELAY
         ((retries++))
     done
@@ -155,21 +216,21 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') Copying $PREV_FILE to $BACKUP_FILE" >> "$LOGG
 
 if cp -v "$PREV_FILE" "$BACKUP_FILE" >> "$LOGGING_FILE" 2>&1; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') Copy succeeded" >> "$LOGGING_FILE"
-	echo "$(date '+%Y-%m-%d %H:%M:%S') Cycle complete: $PREV_FILE rotated and backed up." >> "$LOGGING_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') Cycle complete: $PREV_FILE rotated and backed up." >> "$LOGGING_FILE"
 else
     echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Copy failed! Aborting script!" >> "$LOGGING_FILE"
-	echo "ERROR: Copy failed! Aborting script!"
-	exit 1
+    echo "ERROR: Copy failed! Aborting script!"
+    exit 1
 fi
 
-sleep 5
+sleep 15
 echo "$(date '+%Y-%m-%d %H:%M:%S') Mounting file to extract videos." >> "$LOGGING_FILE"
-if mount -o loop,offset=31744 "$PREV_FILE" "SPARSE_MOUNT"; then
-	echo "Backing file mounted successfully." >> "$LOGGING_FILE"
+if mount -o loop,offset=31744 "$PREV_FILE" "$SPARSE_MOUNT"; then
+    echo "Backing file mounted successfully." >> "$LOGGING_FILE"
 else
-	echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Unable to mount backing file!  Aborting!" >> "$LOGGING_FILE"
-	echo "ERROR: Unable to mount backing file!  Aborting!"
-	exit 1
+    echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Unable to mount backing file!  Aborting!" >> "$LOGGING_FILE"
+    echo "ERROR: Unable to mount backing file!  Aborting!"
+    exit 1
 fi
 
 sync
@@ -212,12 +273,12 @@ retry_count=0
 while [[ $retry_count -lt $XFER_RETRY ]]; do
     TRANSFER_SIZE=$(du -sh . | cut -f1)
     echo "$(date '+%Y-%m-%d %H:%M:%S') Estimated transfer size: $TRANSFER_SIZE" >> "$LOGGING_FILE"
-	start_time=$(date +%s)
-	if tar -cf - . | ssh -p "$SSH_PORT" "$USER_NAME@$IP_ADDRESS" "tar -xpf - -C '$STORAGE_PATH'"; then
+    start_time=$(date +%s)
+    if tar -cf - . | ssh -p "$SSH_PORT" "$USER_NAME@$IP_ADDRESS" "tar -xpf - -C '$STORAGE_PATH'"; then
         end_time=$(date +%s)  # Record end time
         duration=$(( end_time - start_time ))  # Calculate duration in seconds
-		echo "$(date '+%Y-%m-%d %H:%M:%S') Files transferred successfully.  $TRANSFER_SIZE sent in $duration seconds" >> "$LOGGING_FILE"
-		echo "Files transferred successfully.  $TRANSFER_SIZE sent in $duration"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') Files transferred successfully.  $TRANSFER_SIZE sent in $duration seconds" >> "$LOGGING_FILE"
+        echo "Files transferred successfully.  $TRANSFER_SIZE sent in $duration"
         success=1
         break
     else
@@ -244,12 +305,12 @@ fi
 cd /piusb
 echo "$(date '+%Y-%m-%d %H:%M:%S') Unmounting Loop Device" >> "$LOGGING_FILE"
 if umount "$SPARSE_MOUNT"; then
-	echo "$(date '+%Y-%m-%d %H:%M:%S') Unmounted Loop Device sucessfully." >> "$LOGGING_FILE"
-	echo "Unmounted Loop Device sucessfully."
+    echo "$(date '+%Y-%m-%d %H:%M:%S') Unmounted Loop Device sucessfully." >> "$LOGGING_FILE"
+    echo "Unmounted Loop Device sucessfully."
 else
-	echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Failed to unmount Loop Device! Aborting!" >> "$LOGGING_FILE"
-	echo "ERROR: Failed to unmount Loop Device! Aborting!"
-	exit 1
+    echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR: Failed to unmount Loop Device! Aborting!" >> "$LOGGING_FILE"
+    echo "ERROR: Failed to unmount Loop Device! Aborting!"
+    exit 1
 fi
 sync
 sleep 5
@@ -264,11 +325,11 @@ if mount -o loop,offset=31744 "$PREV_FILE" "$SPARSE_MOUNT"; then
     find "$SPARSE_MOUNT/blink" -type d -empty -delete
     sync
     if umount "$SPARSE_MOUNT"; then
-	echo "Unmounted cleanly."
-	echo "$(date '+%Y-%m-%d %H:%M:%S') Unmounting of sparse file successful..." >> "$LOGGING_FILE"
+    echo "Unmounted cleanly."
+    echo "$(date '+%Y-%m-%d %H:%M:%S') Unmounting of sparse file successful..." >> "$LOGGING_FILE"
     else
-	echo "Warning: Failed to unmount."
-	echo "$(date '+%Y-%m-%d %H:%M:%S') Failed to unmount sparse file..." >> "$LOGGING_FILE"
+    echo "Warning: Failed to unmount."
+    echo "$(date '+%Y-%m-%d %H:%M:%S') Failed to unmount sparse file..." >> "$LOGGING_FILE"
     fi
 else
     echo "Failed to mount $PREV_FILE for cleanup."
